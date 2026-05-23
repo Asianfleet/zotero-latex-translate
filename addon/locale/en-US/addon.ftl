@@ -1,0 +1,11 @@
+startup-begin = Zotero LaTeX Translate is loading
+startup-finish = Zotero LaTeX Translate is ready
+menuitem-label = Zotero LaTeX Translate
+menupopup-label = Zotero LaTeX Translate
+menuitem-submenulabel = Generate translated PDF
+menuitem-filemenulabel = Zotero LaTeX Translate
+prefs-title = Zotero LaTeX Translate
+prefs-table-title = Title
+prefs-table-detail = Detail
+tabpanel-lib-tab-label = Lib Tab
+tabpanel-reader-tab-label = Reader Tab

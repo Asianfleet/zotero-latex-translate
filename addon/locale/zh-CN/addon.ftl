@@ -1,0 +1,11 @@
+startup-begin = Zotero LaTeX Translate 加载中
+startup-finish = Zotero LaTeX Translate 已就绪
+menuitem-label = Zotero LaTeX Translate
+menupopup-label = Zotero LaTeX Translate
+menuitem-submenulabel = 生成翻译版 PDF
+menuitem-filemenulabel = Zotero LaTeX Translate
+prefs-title = Zotero LaTeX Translate
+prefs-table-title = 标题
+prefs-table-detail = 详情
+tabpanel-lib-tab-label = 库标签
+tabpanel-reader-tab-label = 阅读器标签
