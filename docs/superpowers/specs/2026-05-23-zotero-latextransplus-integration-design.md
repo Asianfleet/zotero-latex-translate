@@ -245,7 +245,8 @@ argv = [
 
 行为：
 
-- 将 PDF 作为当前普通条目的子附件导入或链接。
+- 将 LaTeXTransPlus 生成的 PDF 导入为当前普通条目的 stored child attachment，即复制到 Zotero storage。
+- 第一版不创建 linked attachment，避免 LaTeXTransPlus 输出目录被清理、移动或覆盖后导致 Zotero 附件失效。
 - 附件标题建议为 `翻译版 PDF (<target_language>)`。
 - 可选添加 tag：`latextransplus-translated`。
 - 如果已有同名翻译附件，默认保留并创建新附件；只有用户启用“覆盖已有翻译附件”时才替换。
@@ -286,12 +287,15 @@ argv = [
 - 已经存在运行中任务的普通条目不再入队，直接提示“该条目正在翻译”，并记为 skipped。
 - 对剩余普通条目逐个执行 arXiv 检测。
 - 多选时不弹出用户输入框；未检测到 arXiv 的普通条目直接记为 skipped。
-- 对检测到 arXiv 的条目建立 `arxivId -> itemID[]` 映射。
-- 映射 key 使用标准化后的 arXiv ID，并与 JSON Lines 事件中的 `project_name` 对齐。
+- 对检测到 arXiv 的条目建立 `latexProjectName -> itemID[]` 映射。
+- `latexProjectName` 必须与 LaTeXTransPlus JSON Lines 事件中的 `project_name` 完全一致。第一版对 arXiv 来源，插件从 arXiv URL 中提取 ID 后保留版本号，并使用该 ID 作为传给 `--arxiv` 的值和映射 key。
+- 第一版只承诺支持新式 arXiv ID，例如 `2508.18791`、`2508.18791v2`。旧式分类 ID，例如 `hep-th/9901001`，可检测但不作为第一版自动批量映射的承诺能力，除非后续 LaTeXTransPlus 事件增加稳定的原始 `source_id` 字段。
 - 同一批中重复的 arXiv ID 只传给 LaTeXTransPlus 一次；生成成功后，结果 PDF 分别保存到所有对应 Zotero 条目。
 - 如果没有任何可处理的 arXiv 条目，不启动 LaTeXTransPlus，只显示 skipped 汇总。
-- LaTeXTransPlus 批处理中单个 project 失败时，只标记映射到该 arXiv ID 的条目失败；其他 project 的成功结果仍继续保存附件。
+- LaTeXTransPlus 批处理中单个 project 失败时，只标记映射到该 `latexProjectName` 的条目失败；其他 project 的成功结果仍继续保存附件。
 - 全部完成后显示批量汇总：成功数、失败数、跳过数。
+
+汇总计数默认按 Zotero item 级统计，而不是按 LaTeXTransPlus project 级统计。一个 arXiv project 映射到多个 Zotero 条目时，每个条目的附件保存结果独立计入成功或失败。CLI project 级成功但某个条目附件保存失败时，该条目标记为附件失败，不影响同一 project 映射下其他条目的保存结果。
 
 用户输入规则：
 
@@ -321,10 +325,10 @@ argv = [
    - arXiv ID 或 arXiv URL -> `--arxiv`
    - `http/https` URL -> `--project-url`
    - 本地路径 -> `--project`
-11. 单选时，插件登记当前 itemID 到 `taskRegistry`，并按单个来源启动外部命令。
-12. 多选时，插件只登记检测到 arXiv 的 itemID 到 `taskRegistry`，建立 `arxivId -> itemID[]` 映射，并构造单个 `--arxiv` 批量输入。
-13. 插件校验 LaTeXTransPlus 配置。
-14. 插件启动外部命令。
+11. 插件校验 LaTeXTransPlus 配置和可处理输入。
+12. 单选时，插件登记当前 itemID 到 `taskRegistry`，并按单个来源启动外部命令。
+13. 多选时，插件只登记检测到 arXiv 的 itemID 到 `taskRegistry`，建立 `latexProjectName -> itemID[]` 映射，并构造单个 `--arxiv` 批量输入。
+14. 插件启动外部命令。登记到 `taskRegistry` 之后，所有成功、失败、取消、配置异常和附件异常路径都必须在统一 `finally` 中释放对应 itemID。
 15. 命令执行期间按行解析 JSON Lines 事件，并根据 `run_start`、`project_start`、`project_complete`、`project_error` 更新 ProgressWindow。
 16. 命令退出后，插件优先根据每个 project 的 `project_complete` 或 `project_error` 事件记录结果。
 17. 对成功 project，插件使用事件中的 `pdf_path` 定位 PDF，必要时再使用目录规则和 fallback 扫描。
@@ -395,7 +399,7 @@ LaTeXTransPlus 第一版事件流只承诺项目级事件，不承诺 parse、tr
 - arXiv URL 提取。
 - DOI、extra、abstractNote 中的 arXiv 提取。
 - 用户输入分类。
-- 多选 arXiv ID 去重与 `arxivId -> itemID[]` 映射。
+- 多选 arXiv ID 去重与 `latexProjectName -> itemID[]` 映射。
 - fixed args 解析。
 - argv 组装。
 - JSON Lines 事件解析。
@@ -423,7 +427,7 @@ LaTeXTransPlus 第一版事件流只承诺项目级事件，不承诺 parse、tr
 - 多选 arXiv 条目合并为一次 `--arxiv` 批量调用。
 - 多选中混有普通条目、附件和笔记时，只处理有 arXiv 的普通条目并汇总 skipped。
 - 多选中某条普通条目缺少 arXiv 时，不弹窗并记为 skipped。
-- 批量调用中单个 project 失败时，只标记映射到该 arXiv ID 的条目失败，不影响其他成功条目的附件保存。
+- 批量调用中单个 project 失败时，只标记映射到该 `latexProjectName` 的条目失败，不影响其他成功条目的附件保存。
 - 多选中重复 arXiv ID 只调用一次 LaTeXTransPlus，并把同一个 PDF 分别保存到多个对应条目。
 - 同一条目已有运行中任务时，再次触发不会新建任务，并计入 skipped。
 - 运行中任务结束、失败或跳过后，对应 itemID 会从 registry 释放。
